@@ -1,0 +1,17 @@
+// middlewares/errorHandler.ts
+import type { Request, Response, NextFunction } from "express";
+
+export function errorHandler(
+  err: any,
+  _req: Request,
+  res: Response,
+  _next: NextFunction
+) {
+  // 👇 GEÇİCİ LOG
+  // eslint-disable-next-line no-console
+  console.error("[ERROR]", err?.name, err?.message, err?.stack);
+  const status = err?.status || 500;
+  res.status(status).json({
+    message: err?.message || "Internal Server Error",
+  });
+}
