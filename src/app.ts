@@ -14,38 +14,37 @@ import { videosRouter } from "./modules/videos/videos.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { categoryRouter } from "./modules/category/category.routes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import { getMongoClient } from "./db/mongoClient.js";
 
 export const app = express();
 
-// --- Güvenlik
-app.use(helmet());
-
-// --- CORS (allowlist + preflight)
-const allowlist = new Set(env.clientOrigins);
+// ---- CORS seçenekleri (Express 5 uyumlu) ----
 const corsOptions: cors.CorsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true); // Postman, curl vs.
-    if (allowlist.has(origin)) return cb(null, true); // tam eşleşme
+    // Postman/cURL gibi originsiz istekler
+    if (!origin) return cb(null, true);
+    // İzin verilen originler (.env'den geliyor)
+    if (env.clientOrigins.includes(origin)) return cb(null, true);
     return cb(new Error("Not allowed by CORS"));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
-app.use((_, res, next) => {
-  res.header("Vary", "Origin");
-  next();
-});
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // preflight'ı burada bitir
 
-// --- Parsers & log
+app.use(helmet());
+app.use(morgan("dev"));
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
-app.use(morgan("dev"));
 app.set("trust proxy", 1);
 
-// --- Session (connect-mongo: mongoUrl ile stabil)
+// *** ÖNEMLİ: CORS middleware'i en üste koy ***
+app.use(cors(corsOptions));
+
+// *** Express 5'te '*' YASAK. Preflight için '(.*)' kullan ***
+app.options("(.*)", cors(corsOptions));
+
+// Session (serverless uyumlu, paylaşımlı MongoClient)
 const isProd = env.nodeEnv === "production";
 app.use(
   session({
@@ -54,32 +53,31 @@ app.use(
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
-      mongoUrl: env.mongoUri, // clientPromise yerine bu
+      clientPromise: getMongoClient(),
       ttl: 60 * 60 * 12,
       autoRemove: "interval",
       autoRemoveInterval: 10,
-      stringify: false,
     }),
     cookie: {
-      domain: '.alpertunaozkan.com',
       httpOnly: true,
       sameSite: isProd ? "none" : "lax",
       secure: isProd,
       maxAge: 1000 * 60 * 60 * 12,
       path: "/",
+      domain: isProd ? ".alpertunaozkan.com" : undefined,
     },
   })
 );
 
-// --- Health
+// Sağlık kontrolü
 app.get(["/health", "/api/health"], (_req, res) => res.json({ ok: true }));
 
-// --- Modüller
+// API yolları
 app.use("/api/auth", authRouter);
 app.use("/api/iletisim", contactRouter);
 app.use("/api/makalelerim", articleRouter);
 app.use("/api/videolarim", videosRouter);
 app.use("/api/kategoriler", categoryRouter);
 
-// --- Hata yakalayıcı (en sonda)
+// Hata yakalayıcı — en sonda
 app.use(errorHandler);
