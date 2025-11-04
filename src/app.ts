@@ -14,6 +14,7 @@ import { videosRouter } from "./modules/videos/videos.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { categoryRouter } from "./modules/category/category.routes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import { getMongoClient } from "./db/mongoClient.js";
 
 export const app = express();
 
@@ -23,25 +24,22 @@ app.use(helmet());
 // CORS
 app.use(
   cors({
-    // iki origin de izinli
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true); // Postman vs.
-      if (env.clientOrigins.includes(origin)) {
-        return cb(null, true);
-      }
-      return cb(new Error("Not allowed by CORS"));
+      if (!origin) return cb(null, true); // Postman, curl
+      if (env.clientOrigins.includes(origin)) return cb(null, true);
+      return cb(null, false); // kibarca reddet (CORS header eklemez)
     },
     credentials: true,
   })
 );
 
 // Parsers & log
-app.use(express.json());
+app.use(express.json({ limit: "1mb" })); // JSON limitini küçük tutmak iyi pratik
 app.use(cookieParser());
 app.use(morgan("dev"));
 app.set("trust proxy", 1);
 
-// Session
+// Session (serverless uyumlu, paylaşımlı MongoClient)
 const isProd = env.nodeEnv === "production";
 app.use(
   session({
@@ -50,8 +48,8 @@ app.use(
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
-      mongoUrl: env.mongoUri,
-      ttl: 60 * 60 * 12, // 12 saat
+      clientPromise: getMongoClient(),
+      ttl: 60 * 60 * 12,
       autoRemove: "interval",
       autoRemoveInterval: 10,
     }),
@@ -68,7 +66,7 @@ app.use(
 // Health
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-// Auth (sadece panel kullanacak olsa bile bırakıyoruz)
+// Auth
 app.use("/api/auth", authRouter);
 
 // Modüller

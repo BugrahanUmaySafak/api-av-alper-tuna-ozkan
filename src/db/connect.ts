@@ -2,12 +2,27 @@
 import mongoose from "mongoose";
 import { env } from "../config/env.js";
 
-export async function connectDB() {
-  try {
-    await mongoose.connect(env.mongoUri);
-    console.log("✅ MongoDB bağlantısı başarılı");
-  } catch (err) {
-    console.error("❌ MongoDB bağlantı hatası:", err);
-    process.exit(1);
+declare global {
+  // eslint-disable-next-line no-var
+  var __mongooseConn: Promise<typeof mongoose> | undefined;
+}
+
+export async function ensureMongoose() {
+  // 1 = connected, 2 = connecting
+  if (mongoose.connection.readyState === 1) return;
+  if (mongoose.connection.readyState === 2) {
+    await mongoose.connection.asPromise();
+    return;
   }
+  if (!global.__mongooseConn) {
+    global.__mongooseConn = mongoose.connect(env.mongoUri, {
+      // serverless bağlantı optimizasyonları
+      maxPoolSize: 5,
+      minPoolSize: 0,
+      serverSelectionTimeoutMS: 5000,
+    });
+  }
+  await global.__mongooseConn;
+  // eslint-disable-next-line no-console
+  console.log("✅ Mongoose connected");
 }

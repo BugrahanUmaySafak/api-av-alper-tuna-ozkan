@@ -13,5 +13,6 @@
     "types": ["node", "express", "express-session", "cookie-parser"],
     "resolveJsonModule": true
   },
-  "include": ["src", "src/types/**/*.d.ts"]
+  "include": ["src", "src/types/**/*.d.ts"],
+  "exclude": ["api"]
 }
