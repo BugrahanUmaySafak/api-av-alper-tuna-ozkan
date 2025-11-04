@@ -17,43 +17,48 @@ import { errorHandler } from "./middlewares/errorHandler.js";
 
 export const app = express();
 
-// Güvenlik
+// --- Güvenlik
 app.use(helmet());
 
-// CORS
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true); // Postman, curl
-      if (env.clientOrigins.includes(origin)) return cb(null, true);
-      return cb(null, false);
-    },
-    credentials: true,
-  })
-);
+// --- CORS (allowlist + preflight)
+const allowlist = new Set(env.clientOrigins);
+const corsOptions: cors.CorsOptions = {
+  origin(origin, cb) {
+    if (!origin) return cb(null, true); // Postman, curl vs.
+    if (allowlist.has(origin)) return cb(null, true); // tam eşleşme
+    return cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+app.use((_, res, next) => {
+  res.header("Vary", "Origin");
+  next();
+});
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // preflight'ı burada bitir
 
-// Parsers & log
+// --- Parsers & log
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use(morgan("dev"));
 app.set("trust proxy", 1);
 
-// ---- Health endpoint'i EN ÜSTE al: session/DB beklemesin
-app.get(["/health", "/api/health"], (_req, res) => res.json({ ok: true }));
-
-// ---- Session'ı LAZY kur (health için çalışmasın)
+// --- Session (connect-mongo: mongoUrl ile stabil)
 const isProd = env.nodeEnv === "production";
-const buildSession = () =>
+app.use(
   session({
     name: "sid",
     secret: env.sessionSecret,
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
-      mongoUrl: env.mongoUri, // <-- clientPromise yerine mongoUrl
+      mongoUrl: env.mongoUri, // clientPromise yerine bu
       ttl: 60 * 60 * 12,
       autoRemove: "interval",
       autoRemoveInterval: 10,
+      stringify: false,
     }),
     cookie: {
       httpOnly: true,
@@ -62,23 +67,18 @@ const buildSession = () =>
       maxAge: 1000 * 60 * 60 * 12,
       path: "/",
     },
-  });
+  })
+);
 
-// Sadece health dışındaki path’lerde session kur
-app.use((req, res, next) => {
-  const p = req.path || "";
-  if (p === "/health" || p === "/api/health") return next();
-  return buildSession()(req, res, next);
-});
+// --- Health
+app.get(["/health", "/api/health"], (_req, res) => res.json({ ok: true }));
 
-// Auth
+// --- Modüller
 app.use("/api/auth", authRouter);
-
-// Modüller
 app.use("/api/iletisim", contactRouter);
 app.use("/api/makalelerim", articleRouter);
 app.use("/api/videolarim", videosRouter);
 app.use("/api/kategoriler", categoryRouter);
 
-// Hata yakalayıcı
+// --- Hata yakalayıcı (en sonda)
 app.use(errorHandler);
