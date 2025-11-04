@@ -61,6 +61,7 @@ app.use(
       stringify: false,
     }),
     cookie: {
+      domain: '.alpertunaozkan.com',
       httpOnly: true,
       sameSite: isProd ? "none" : "lax",
       secure: isProd,
