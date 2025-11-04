@@ -19,4 +19,4 @@ export default async function handler(
   return app(req as any, res as any);
 }
 
-export const config = { maxDuration: 10, memory: 1024 };
+export const config = { maxDuration: 10 };

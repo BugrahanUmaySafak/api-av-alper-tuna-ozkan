@@ -1,4 +1,7 @@
 {
-  "functions": { "api/[[...slug]].ts": { "memory": 1024, "maxDuration": 10 } },
-  "outputDirectory": "."
+  "functions": {
+    "api/[[...slug]].ts": {
+      "maxDuration": 10
+    }
+  }
 }
