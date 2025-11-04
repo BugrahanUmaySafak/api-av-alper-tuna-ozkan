@@ -21,12 +21,9 @@ export const app = express();
 /* ------------------------- CORS ------------------------- */
 const corsOptions: cors.CorsOptions = {
   origin(origin, cb) {
-    // originsiz istekler (curl/postman/same-origin) serbest
-    if (!origin) return cb(null, true);
-    // env'den gelen whitelist
+    if (!origin) return cb(null, true); // curl/postman/same-origin
     if (env.clientOrigins.includes(origin)) return cb(null, true);
-    // 500 atmamak için hata yerine false döndür
-    return cb(null, false);
+    return cb(null, false); // 500 atma
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -39,11 +36,15 @@ app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.set("trust proxy", 1);
 
-// CORS en üste
+// CORS middleware
 app.use(cors(corsOptions));
 
-app.options("*", cors(corsOptions));
+// 🔧 Express 5: preflight için **regex** kullan
+// tüm yollar:  /^\/.*$/
+// sadece API:  /^\/api\/.*$/
+app.options(/^\/.*$/, cors(corsOptions));
 
+/* --------------------- SESSION (Mongo) ------------------- */
 const isProd = env.nodeEnv === "production";
 
 app.use(
@@ -69,12 +70,15 @@ app.use(
   })
 );
 
+/* ------------------------ HEALTH ------------------------ */
 app.get(["/health", "/api/health"], (_req, res) => res.json({ ok: true }));
 
+/* ------------------------- ROUTES ------------------------ */
 app.use("/api/auth", authRouter);
 app.use("/api/iletisim", contactRouter);
 app.use("/api/makalelerim", articleRouter);
 app.use("/api/videolarim", videosRouter);
 app.use("/api/kategoriler", categoryRouter);
 
+/* ---------------------- ERROR HANDLER -------------------- */
 app.use(errorHandler);
