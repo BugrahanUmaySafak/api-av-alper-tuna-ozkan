@@ -18,14 +18,14 @@ import { getMongoClient } from "./db/mongoClient.js";
 
 export const app = express();
 
-// ---- CORS seçenekleri (Express 5 uyumlu) ----
+/* ------------------------- CORS ------------------------- */
 const corsOptions: cors.CorsOptions = {
   origin(origin, cb) {
-    // Originsiz istekler (same-origin, curl, postman) serbest
+    // originsiz istekler (curl/postman/same-origin) serbest
     if (!origin) return cb(null, true);
-    // İzin verilen originler (.env'den)
+    // env'den gelen whitelist
     if (env.clientOrigins.includes(origin)) return cb(null, true);
-    // ❗ ÖNEMLİ: hata fırlatmak yerine 'false' dön -> 500 yerine CORS block olur
+    // 500 atmamak için hata yerine false döndür
     return cb(null, false);
   },
   credentials: true,
@@ -42,11 +42,10 @@ app.set("trust proxy", 1);
 // CORS en üste
 app.use(cors(corsOptions));
 
-// Express 5: '*' yerine '(.*)' ile preflight
-app.options("(.*)", cors(corsOptions));
+app.options("*", cors(corsOptions));
 
-// Session (serverless uyumlu, paylaşımlı MongoClient)
 const isProd = env.nodeEnv === "production";
+
 app.use(
   session({
     name: "sid",
@@ -70,15 +69,12 @@ app.use(
   })
 );
 
-// Sağlık kontrolü
 app.get(["/health", "/api/health"], (_req, res) => res.json({ ok: true }));
 
-// API yolları
 app.use("/api/auth", authRouter);
 app.use("/api/iletisim", contactRouter);
 app.use("/api/makalelerim", articleRouter);
 app.use("/api/videolarim", videosRouter);
 app.use("/api/kategoriler", categoryRouter);
 
-// Hata yakalayıcı — en sonda
 app.use(errorHandler);
