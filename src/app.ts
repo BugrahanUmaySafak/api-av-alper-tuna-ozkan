@@ -21,11 +21,12 @@ export const app = express();
 // ---- CORS seçenekleri (Express 5 uyumlu) ----
 const corsOptions: cors.CorsOptions = {
   origin(origin, cb) {
-    // Postman/cURL gibi originsiz istekler
+    // Originsiz istekler (same-origin, curl, postman) serbest
     if (!origin) return cb(null, true);
-    // İzin verilen originler (.env'den geliyor)
+    // İzin verilen originler (.env'den)
     if (env.clientOrigins.includes(origin)) return cb(null, true);
-    return cb(new Error("Not allowed by CORS"));
+    // ❗ ÖNEMLİ: hata fırlatmak yerine 'false' dön -> 500 yerine CORS block olur
+    return cb(null, false);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -38,10 +39,10 @@ app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.set("trust proxy", 1);
 
-// *** ÖNEMLİ: CORS middleware'i en üste koy ***
+// CORS en üste
 app.use(cors(corsOptions));
 
-// *** Express 5'te '*' YASAK. Preflight için '(.*)' kullan ***
+// Express 5: '*' yerine '(.*)' ile preflight
 app.options("(.*)", cors(corsOptions));
 
 // Session (serverless uyumlu, paylaşımlı MongoClient)
