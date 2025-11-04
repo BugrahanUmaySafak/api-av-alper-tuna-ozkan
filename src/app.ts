@@ -1,3 +1,4 @@
+// src/app.ts
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -5,7 +6,6 @@ import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import MongoStore from "connect-mongo";
-import mongoose from "mongoose";
 
 import { env } from "./config/env.js";
 import { contactRouter } from "./modules/contact/contact.routes.js";
@@ -38,26 +38,23 @@ app.use(cookieParser());
 app.use(morgan("dev"));
 app.set("trust proxy", 1);
 
-// Session (mevcut Mongoose bağlantısını kullan)
+// ---- Health endpoint'i EN ÜSTE al: session/DB beklemesin
+app.get(["/health", "/api/health"], (_req, res) => res.json({ ok: true }));
+
+// ---- Session'ı LAZY kur (health için çalışmasın)
 const isProd = env.nodeEnv === "production";
-
-const sessionStore = MongoStore.create({
-  // Mongoose bağlanınca al; ikinci bir MongoClient açma
-  clientPromise: mongoose.connection
-    .asPromise()
-    .then(() => mongoose.connection.getClient()),
-  ttl: 60 * 60 * 12, // 12 saat
-  autoRemove: "interval",
-  autoRemoveInterval: 10,
-});
-
-app.use(
+const buildSession = () =>
   session({
     name: "sid",
     secret: env.sessionSecret,
     resave: false,
     saveUninitialized: false,
-    store: sessionStore,
+    store: MongoStore.create({
+      mongoUrl: env.mongoUri, // <-- clientPromise yerine mongoUrl
+      ttl: 60 * 60 * 12,
+      autoRemove: "interval",
+      autoRemoveInterval: 10,
+    }),
     cookie: {
       httpOnly: true,
       sameSite: isProd ? "none" : "lax",
@@ -65,11 +62,14 @@ app.use(
       maxAge: 1000 * 60 * 60 * 12,
       path: "/",
     },
-  })
-);
+  });
 
-// Health
-app.get(["/health", "/api/health"], (_req, res) => res.json({ ok: true }));
+// Sadece health dışındaki path’lerde session kur
+app.use((req, res, next) => {
+  const p = req.path || "";
+  if (p === "/health" || p === "/api/health") return next();
+  return buildSession()(req, res, next);
+});
 
 // Auth
 app.use("/api/auth", authRouter);
@@ -80,5 +80,5 @@ app.use("/api/makalelerim", articleRouter);
 app.use("/api/videolarim", videosRouter);
 app.use("/api/kategoriler", categoryRouter);
 
-// Hata yakalayıcı — en sonda
+// Hata yakalayıcı
 app.use(errorHandler);

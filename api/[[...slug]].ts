@@ -7,17 +7,15 @@ export default async function handler(
   req: IncomingMessage & { url?: string },
   res: ServerResponse
 ) {
-  // Health: DB beklemeden hemen dön
+  // Health kontrolü: DB bekleme, session tetikleme
   if (req.url?.startsWith("/api/health") || req.url?.startsWith("/health")) {
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ ok: true }));
     return;
   }
 
-  // İlk gerçek istekten önce DB bağlantısını kur
+  // Diğer isteklerde DB bağlantısını hazırla
   await ensureMongoose();
-
-  // Express uygulamasını doğrudan çalıştır
   return app(req as any, res as any);
 }
 
