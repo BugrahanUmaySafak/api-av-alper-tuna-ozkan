@@ -70,7 +70,7 @@ app.use("/api/auth", authRouter);
 
 // Modüller
 app.use("/api/iletisim", contactRouter);
-app.use("/api/makalelerim", articleRouter);
+app.use("/makalelerim", articleRouter);
 app.use("/api/videolarim", videosRouter);
 app.use("/api/kategoriler", categoryRouter);
 
