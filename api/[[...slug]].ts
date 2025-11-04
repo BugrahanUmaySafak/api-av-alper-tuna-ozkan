@@ -1,19 +1,23 @@
 // api/[[...slug]].ts
 import serverless from "serverless-http";
-import { app } from "../src/app.js";
 import { ensureMongoose } from "../src/db/connect.js";
 
-let handler: any;
+let handler: any; // cache
 
 export default async function (req: any, res: any) {
-  if (req.url === "/api/health" || req.url === "/health") {
+  // ✅ Health: DB beklemeden yanıtla
+  if (req.url?.startsWith("/api/health") || req.url?.startsWith("/health")) {
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ ok: true }));
     return;
   }
 
-  await ensureMongoose();
-  handler ||= serverless(app);
+  // Lazy import + DB bağlantısı sadece ihtiyaç olunca
+  if (!handler) {
+    await ensureMongoose();
+    const { app } = await import("../src/app.js");
+    handler = serverless(app);
+  }
   return handler(req, res);
 }
 
