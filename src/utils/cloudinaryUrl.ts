@@ -1,6 +1,4 @@
-/* ===========================
- * Cloudinary URL Utilities
- * =========================== */
+// src/utils/cloudinaryUrl.ts
 
 function isCloudinaryUrl(url: string) {
   return /res\.cloudinary\.com\/.+\/image\/upload\//.test(url);

@@ -1,3 +1,4 @@
+// src/modules/category/category.model.ts
 import { Schema, model, type InferSchemaType } from "mongoose";
 
 const CategorySchema = new Schema(

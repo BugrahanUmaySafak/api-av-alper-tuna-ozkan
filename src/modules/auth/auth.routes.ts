@@ -1,3 +1,4 @@
+// src/modules/auth/auth.routes.ts
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { login, logout, me, protectedExample } from "./auth.controller.js";

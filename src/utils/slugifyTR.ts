@@ -1,4 +1,4 @@
-// Küçük harf, TR karakter transliterasyon, tek tire, baş/son tire kırpma
+// src/utils/slugifyTR.ts
 export function slugify(input: string): string {
   const map: Record<string, string> = {
     ç: "c",

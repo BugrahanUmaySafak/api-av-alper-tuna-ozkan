@@ -1,3 +1,4 @@
+// src/modules/category/category.routes.ts
 import { Router } from "express";
 import {
   listCategories,

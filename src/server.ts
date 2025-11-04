@@ -1,9 +1,12 @@
+// src/server.ts
+
 import { app } from "./app.js";
 import { connectDB } from "./db/connect.js";
-import { env } from "./config/env.js";
 
 await connectDB();
 
-app.listen(env.port, () => {
-  console.log(`🚀 API ready on http://localhost:${env.port}`);
+const port = Number(process.env.PORT ?? process.env.port ?? 4001);
+app.listen(port, "0.0.0.0", () => {
+  console.log(`🚀 API ready on http://0.0.0.0:${port}`);
 });
+  

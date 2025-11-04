@@ -1,3 +1,4 @@
+// src/modules/category/category.controller.ts
 import type { Request, Response, NextFunction } from "express";
 import { Types } from "mongoose";
 import { CategoryModel } from "./category.model.js";

@@ -1,3 +1,4 @@
+// src/modules/article/types.ts
 import type { Category } from "../category/types.ts";
 
 export type Article = {
