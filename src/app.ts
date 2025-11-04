@@ -1,4 +1,3 @@
-// src/app.ts
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -19,16 +18,25 @@ import { getMongoClient } from "./db/mongoClient.js";
 export const app = express();
 
 /* ------------------------- CORS ------------------------- */
+const allowedOrigins = env.clientOrigins.filter(Boolean);
+
 const corsOptions: cors.CorsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true); // curl/postman/same-origin
-    if (env.clientOrigins.includes(origin)) return cb(null, true);
-    return cb(null, false); // 500 atma
+    // server-to-server / same-origin / Postman vb.
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error("Not allowed by CORS"));
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
+
+// Vary: Origin (cache doğruluğu için)
+app.use((_, res, next) => {
+  res.header("Vary", "Origin");
+  next();
+});
 
 app.use(helmet());
 app.use(morgan("dev"));
@@ -39,9 +47,7 @@ app.set("trust proxy", 1);
 // CORS middleware
 app.use(cors(corsOptions));
 
-// 🔧 Express 5: preflight için **regex** kullan
-// tüm yollar:  /^\/.*$/
-// sadece API:  /^\/api\/.*$/
+// Preflight (Express 5, regex ile)
 app.options(/^\/.*$/, cors(corsOptions));
 
 /* --------------------- SESSION (Mongo) ------------------- */
@@ -55,14 +61,14 @@ app.use(
     saveUninitialized: false,
     store: MongoStore.create({
       clientPromise: getMongoClient(),
-      ttl: 60 * 60 * 12,
+      ttl: 60 * 60 * 12, // 12 saat
       autoRemove: "interval",
       autoRemoveInterval: 10,
     }),
     cookie: {
       httpOnly: true,
-      sameSite: isProd ? "none" : "lax",
-      secure: isProd,
+      sameSite: isProd ? "none" : "lax", // cross-site için prod’da none
+      secure: isProd, // HTTPS zorunlu
       maxAge: 1000 * 60 * 60 * 12,
       path: "/",
       domain: isProd ? ".alpertunaozkan.com" : undefined,
