@@ -30,18 +30,20 @@ export async function login(req: Request, res: Response) {
 }
 
 export async function logout(req: Request, res: Response) {
-  // Session'ı yok et ve cookie'yi **aynı ayarlarla** temizle
   req.session.destroy(() => {
     res.clearCookie("sid", {
       httpOnly: true,
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       secure: process.env.NODE_ENV === "production",
-      path: "/", // önemli
+      path: "/",
+      domain:
+        process.env.NODE_ENV === "production"
+          ? ".alpertunaozkan.com"
+          : undefined, // <-- eklendi
     });
     res.json({ ok: true });
   });
 }
-
 export async function me(req: Request, res: Response) {
   if (req.session?.userId) {
     return res.json({ ok: true, user: { username: req.session.username } });
