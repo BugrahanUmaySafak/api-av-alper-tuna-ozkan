@@ -8,14 +8,15 @@ import {
   deleteArticle,
   upload,
 } from "./article.controller.js";
+import { requireAuth } from "../../middlewares/requireAuth.js";
 
 export const articleRouter = Router();
 
-/* Public */
+/* Public (ANA SİTE) */
 articleRouter.get("/", listArticles);
 articleRouter.get("/:slug", getArticleBySlug);
 
-/* Admin */
-articleRouter.post("/", upload.single("file"), createArticle);
-articleRouter.patch("/:id", upload.single("file"), updateArticle);
-articleRouter.delete("/:id", deleteArticle);
+/* Panel (AUTH ZORUNLU) */
+articleRouter.post("/", requireAuth, upload.single("file"), createArticle);
+articleRouter.patch("/:id", requireAuth, upload.single("file"), updateArticle);
+articleRouter.delete("/:id", requireAuth, deleteArticle);

@@ -5,9 +5,13 @@ import {
   listIletisim,
   deleteIletisim,
 } from "./contact.controller.js";
+import { requireAuth } from "../../middlewares/requireAuth.js";
 
 export const contactRouter = Router();
 
+/* Ana site: sadece POST /iletisim public */
 contactRouter.post("/", createIletisim);
-contactRouter.get("/", listIletisim);
-contactRouter.delete("/:id", deleteIletisim);
+
+/* Panel (AUTH ZORUNLU) */
+contactRouter.get("/", requireAuth, listIletisim);
+contactRouter.delete("/:id", requireAuth, deleteIletisim);

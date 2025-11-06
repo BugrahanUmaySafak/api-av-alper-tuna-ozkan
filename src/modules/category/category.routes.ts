@@ -6,10 +6,14 @@ import {
   updateCategory,
   deleteCategory,
 } from "./category.controller.js";
+import { requireAuth } from "../../middlewares/requireAuth.js";
 
 export const categoryRouter = Router();
 
+/* Public (ANA SİTE) */
 categoryRouter.get("/", listCategories);
-categoryRouter.post("/", createCategory);
-categoryRouter.patch("/:id", updateCategory);
-categoryRouter.delete("/:id", deleteCategory);
+
+/* Panel (AUTH ZORUNLU) */
+categoryRouter.post("/", requireAuth, createCategory);
+categoryRouter.patch("/:id", requireAuth, updateCategory);
+categoryRouter.delete("/:id", requireAuth, deleteCategory);
