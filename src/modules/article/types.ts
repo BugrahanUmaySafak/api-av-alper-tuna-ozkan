@@ -10,6 +10,7 @@ export type Article = {
     url: string;
     alt: string;
     tinyUrl?: string;
+    publicId?: string;
   };
   summary?: string;
   category?: Category;

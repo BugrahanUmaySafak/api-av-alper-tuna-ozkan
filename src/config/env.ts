@@ -1,13 +1,24 @@
 // src/config/env.ts
 import "dotenv/config";
 
-const clientOrigins = [
-  process.env.CLIENT_ORIGIN_PANEL,
-  process.env.CLIENT_ORIGIN_MAIN,
-  process.env.CLIENT_ORIGIN_MAIN_2,
-  process.env.NODE_ENV !== "production" ? "http://localhost:3000" : undefined,
-  process.env.NODE_ENV !== "production" ? "http://localhost:3001" : undefined,
-].filter(Boolean) as string[];
+const defaultClientOrigins = [
+  "https://panel.alpertunaozkan.com",
+  "https://www.alpertunaozkan.com",
+  "https://alpertunaozkan.com",
+];
+
+const clientOrigins = Array.from(
+  new Set(
+    [
+      ...defaultClientOrigins,
+      process.env.CLIENT_ORIGIN_PANEL,
+      process.env.CLIENT_ORIGIN_MAIN,
+      process.env.CLIENT_ORIGIN_MAIN_2,
+      process.env.NODE_ENV !== "production" ? "http://localhost:3000" : undefined,
+      process.env.NODE_ENV !== "production" ? "http://localhost:3001" : undefined,
+    ].filter(Boolean)
+  )
+) as string[];
 
 export const env = {
   port: Number(process.env.PORT ?? 4001),
@@ -21,5 +32,7 @@ export const env = {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME ?? "",
     apiKey: process.env.CLOUDINARY_API_KEY ?? "",
     apiSecret: process.env.CLOUDINARY_API_SECRET ?? "",
+    articleFolder: process.env.CLOUDINARY_ARTICLE_FOLDER ?? "articles",
+    articleUploadPreset: process.env.CLOUDINARY_ARTICLE_UPLOAD_PRESET ?? "",
   },
 };

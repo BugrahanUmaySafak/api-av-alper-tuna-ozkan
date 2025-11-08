@@ -1,10 +1,9 @@
 // src/modules/article/article.controller.ts
 import type { Request, Response, NextFunction } from "express";
-import multer from "multer";
 import { Types } from "mongoose";
 import cloudinary from "../../config/cloudinary.js"; // ⬅️ kendi config’in
 import { ArticleModel } from "./article.model.js";
-import { articleSchema } from "./article.schema.js";
+import { articleSchema, articleUpdateSchema } from "./article.schema.js";
 import { slugify } from "../../utils/slugifyTR.js";
 import { CategoryModel } from "../category/category.model.js";
 import {
@@ -13,11 +12,6 @@ import {
   noCropFitCloudinary,
   chooseNoCropUnder1MB,
 } from "../../utils/cloudinaryUrl.js";
-
-export const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024 },
-});
 
 /* ------------------------------------------------------------------ */
 /*  ortak yardımcılar                                                  */
@@ -35,68 +29,6 @@ async function destroyIfExists(publicId?: string | null) {
   }
 }
 
-async function uploadToCloudinary(
-  file: Express.Multer.File
-): Promise<{ url: string; tinyUrl: string; publicId: string }> {
-  const res: any = await new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: "articles",
-        resource_type: "image",
-        overwrite: false,
-      },
-      (err, result) => (err ? reject(err) : resolve(result))
-    );
-    stream.end(file.buffer);
-  });
-
-  const publicId = res.public_id as string;
-  const rawUrl = res.secure_url as string;
-
-  // 👇 1 MB altına düşürme – SENDE VAR OLAN DAVRANIŞ
-  const optimizedUrl =
-    (await chooseNoCropUnder1MB(
-      rawUrl,
-      [1920, 1600],
-      ["auto:eco", "auto:low", 60]
-    )) ?? noCropFitCloudinary(rawUrl, { w: 1600 })!;
-
-  const tinyUrl =
-    tinyBlurCloudinary(rawUrl) ??
-    tinyBlurFillCloudinary(rawUrl, { fillWidth: 1600 }) ??
-    rawUrl;
-
-  return { url: optimizedUrl, tinyUrl, publicId };
-}
-
-// dış URL geldiyse içeri al
-async function importUrlToCloudinary(
-  url: string
-): Promise<{ url: string; tinyUrl: string; publicId: string }> {
-  const res = await cloudinary.uploader.upload(url, {
-    folder: "articles",
-    resource_type: "image",
-    overwrite: false,
-  });
-
-  const publicId = res.public_id as string;
-  const rawUrl = res.secure_url as string;
-
-  const optimizedUrl =
-    (await chooseNoCropUnder1MB(
-      rawUrl,
-      [1920, 1600],
-      ["auto:eco", "auto:low", 60]
-    )) ?? noCropFitCloudinary(rawUrl, { w: 1600 })!;
-
-  const tinyUrl =
-    tinyBlurCloudinary(rawUrl) ??
-    tinyBlurFillCloudinary(rawUrl, { fillWidth: 1600 }) ??
-    rawUrl;
-
-  return { url: optimizedUrl, tinyUrl, publicId };
-}
-
 function parseIncomingBody(req: Request): any {
   const b: any = req.body ?? {};
   if (typeof b.data === "string") {
@@ -109,6 +41,36 @@ function parseIncomingBody(req: Request): any {
   return b;
 }
 
+async function normalizeImagePayload(
+  image: {
+    url: string;
+    alt?: string;
+    tinyUrl?: string;
+    publicId: string;
+  },
+  fallbackAlt?: string
+) {
+  const optimizedUrl =
+    (await chooseNoCropUnder1MB(
+      image.url,
+      [1920, 1600],
+      ["auto:eco", "auto:low", 60]
+    )) ?? noCropFitCloudinary(image.url, { w: 1600 }) ?? image.url;
+
+  const derivedTiny =
+    image.tinyUrl ??
+    tinyBlurCloudinary(image.url) ??
+    tinyBlurFillCloudinary(image.url, { fillWidth: 1600 }) ??
+    image.url;
+
+  return {
+    url: optimizedUrl,
+    alt: image.alt ?? fallbackAlt ?? "Kapak görseli",
+    tinyUrl: derivedTiny,
+    publicId: image.publicId,
+  };
+}
+
 function mapArticle(doc: any) {
   return {
     id: String(doc._id),
@@ -119,6 +81,7 @@ function mapArticle(doc: any) {
       url: String(doc?.image?.url ?? ""),
       alt: String(doc?.image?.alt ?? ""),
       tinyUrl: doc?.image?.tinyUrl ?? undefined,
+      publicId: doc?.image?.publicId ?? undefined,
     },
     summary: doc?.summary ?? undefined,
     category: doc?.category
@@ -218,31 +181,19 @@ export async function createArticle(
         .status(400)
         .json({ message: "Görsel açıklaması (alt) zorunludur" });
 
-    let url = body.image?.url || "";
-    let tinyUrl: string | undefined;
-    let publicId: string | undefined;
-
-    if (req.file) {
-      const uploaded = await uploadToCloudinary(req.file);
-      url = uploaded.url;
-      tinyUrl = uploaded.tinyUrl;
-      publicId = uploaded.publicId;
-    } else if (url) {
-      const imported = await importUrlToCloudinary(url);
-      url = imported.url;
-      tinyUrl = imported.tinyUrl;
-      publicId = imported.publicId;
-    } else {
+    if (!body.image?.url || !body.image?.publicId) {
       return res
         .status(400)
-        .json({ message: "Görsel yüklenmeli veya URL verilmelidir." });
+        .json({ message: "Cloudinary url ve publicId zorunludur." });
     }
+
+    const normalizedImage = await normalizeImagePayload(body.image, body.image.alt);
 
     const created = await ArticleModel.create({
       title: body.title,
       slug: uniqueSlug,
       content: body.content,
-      image: { url, alt: body.image.alt, tinyUrl, publicId },
+      image: normalizedImage,
       summary: body.summary,
       category: catId,
       keywords: body.keywords ?? [],
@@ -271,34 +222,8 @@ export async function updateArticle(
     if (!existing)
       return res.status(404).json({ message: "Makale bulunamadı" });
 
-    const bodyKeys = Object.keys(req.body ?? {});
-    const isFileOnlyUpload =
-      !!req.file &&
-      (bodyKeys.length === 0 ||
-        (bodyKeys.length === 1 &&
-          (bodyKeys[0] === "slug" ||
-            bodyKeys[0] === "_action" ||
-            bodyKeys[0] === "data")));
-
-    // 1) sadece görsel yüklüyorsa (panelde Hero’dan upload)
-    if (isFileOnlyUpload) {
-      await destroyIfExists(existing.image?.publicId);
-      const uploaded = await uploadToCloudinary(req.file!);
-      existing.image = {
-        url: uploaded.url,
-        tinyUrl: uploaded.tinyUrl,
-        alt: existing.image?.alt || "Kapak görseli",
-        publicId: uploaded.publicId,
-      };
-      await existing.save();
-      return res.json({
-        image: { url: uploaded.url, tinyUrl: uploaded.tinyUrl },
-      });
-    }
-
-    // 2) normal patch — 🔴 BURASI ARTIK PARTIAL!
     const raw = parseIncomingBody(req);
-    const parsed = articleSchema.partial().safeParse(raw);
+    const parsed = articleUpdateSchema.safeParse(raw);
     if (!parsed.success)
       return res.status(400).json({ errors: parsed.error.format() });
     const body = parsed.data;
@@ -349,35 +274,39 @@ export async function updateArticle(
       existing.readingMinutes = body.readingMinutes as any;
 
     // GÖRSEL
-    if (req.file) {
-      // tamamen yeni dosya → eskisini sil
-      await destroyIfExists(existing.image?.publicId);
-      const uploaded = await uploadToCloudinary(req.file);
-      existing.image = {
-        url: uploaded.url,
-        alt: body.image?.alt ?? existing.image?.alt ?? "Kapak görseli",
-        tinyUrl: uploaded.tinyUrl,
-        publicId: uploaded.publicId,
-      };
-    } else if (body.image) {
-      // body.image.url aynıysa, yeniden import etme
-      if (
-        body.image.url &&
-        body.image.url !== existing.image?.url // ⬅️ gereksiz silmeyi engelle
-      ) {
-        await destroyIfExists(existing.image?.publicId);
-        const imported = await importUrlToCloudinary(body.image.url);
-        existing.image = {
-          url: imported.url,
-          alt: body.image.alt ?? existing.image?.alt ?? "Kapak görseli",
-          tinyUrl: imported.tinyUrl,
-          publicId: imported.publicId,
-        };
+    if (body.image) {
+      const wantsNewAsset =
+        typeof body.image.url === "string" &&
+        typeof body.image.publicId === "string";
+
+      const alt =
+        body.image.alt ??
+        existing.image?.alt ??
+        body.title ??
+        existing.title ??
+        "Kapak görseli";
+
+      if (wantsNewAsset) {
+        if (
+          existing.image?.publicId &&
+          body.image.publicId !== existing.image.publicId
+        ) {
+          await destroyIfExists(existing.image.publicId);
+        }
+
+        existing.image = await normalizeImagePayload(
+          {
+            url: body.image.url!,
+            alt,
+            tinyUrl: body.image.tinyUrl,
+            publicId: body.image.publicId!,
+          },
+          alt
+        );
       } else {
-        // sadece alt / tiny değişiyorsa
         existing.image = {
-          url: existing.image?.url!,
-          alt: body.image.alt ?? existing.image?.alt ?? "Kapak görseli",
+          url: existing.image?.url ?? "",
+          alt,
           tinyUrl: body.image.tinyUrl ?? existing.image?.tinyUrl,
           publicId: existing.image?.publicId,
         };

@@ -21,7 +21,6 @@ import {
   createArticle,
   updateArticle,
   deleteArticle,
-  upload as articleUpload,
 } from "./modules/article/article.controller.js";
 
 import {
@@ -46,6 +45,7 @@ import {
 } from "./modules/contact/contact.controller.js";
 
 import { requireAuth } from "./middlewares/requireAuth.js";
+import { uploadsRouter } from "./modules/uploads/uploads.routes.js";
 
 /* ========================================================================== */
 
@@ -64,6 +64,8 @@ const corsOptions: cors.CorsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
+app.use(cors(corsOptions));
+
 // Vary: Origin (cache doğruluğu için)
 app.use((_, res, next) => {
   res.header("Vary", "Origin");
@@ -72,7 +74,8 @@ app.use((_, res, next) => {
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(morgan("dev"));
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ limit: "5mb", extended: true }));
 app.use(cookieParser());
 app.set("trust proxy", 1);
 
@@ -107,7 +110,7 @@ app.get(["/health", "/api/health"], (_req, res) => res.json({ ok: true }));
 
 /* ------------------------- AUTH -------------------------- */
 // (Sadece panel kullanır ama path /api/auth altında kalıyor)
-app.use("/api/auth", cors(corsOptions), authRouter);
+app.use("/api/auth", authRouter);
 
 /* -------------------------- API -------------------------- */
 // Tüm uçlar /api altında; public ve auth’lu uçları aynı router’da ayırıyoruz
@@ -122,30 +125,24 @@ api.get("/makalelerim/:slug", getArticleBySlug);
 api.get("/videolarim", listVideos);
 api.get("/videolarim/:id", getVideoById);
 
+// Kategoriler (sadece GET)
+api.get("/kategoriler", listCategories);
+
 // İletişim (sadece POST public)
 api.post("/iletisim", createIletisim);
 
 /* ======== PANEL (AUTH ZORUNLU) ======== */
 // Makaleler CRUD
-api.post(
-  "/makalelerim",
-  requireAuth,
-  articleUpload.single("file"),
-  createArticle
-);
-api.patch(
-  "/makalelerim/:id",
-  requireAuth,
-  articleUpload.single("file"),
-  updateArticle
-);
+api.post("/makalelerim", requireAuth, createArticle);
+api.patch("/makalelerim/:id", requireAuth, updateArticle);
 api.delete("/makalelerim/:id", requireAuth, deleteArticle);
 
 api.post("/videolarim", requireAuth, createVideo);
 api.patch("/videolarim/:id", requireAuth, updateVideo);
 api.delete("/videolarim/:id", requireAuth, deleteVideo);
 
-api.get("/kategoriler", requireAuth, listCategories);
+api.use("/uploads", uploadsRouter);
+
 api.post("/kategoriler", requireAuth, createCategory);
 api.patch("/kategoriler/:id", requireAuth, updateCategory);
 api.delete("/kategoriler/:id", requireAuth, deleteCategory);
@@ -153,6 +150,6 @@ api.delete("/kategoriler/:id", requireAuth, deleteCategory);
 api.get("/iletisim", requireAuth, listIletisim);
 api.delete("/iletisim/:id", requireAuth, deleteIletisim);
 
-app.use("/api", cors(corsOptions), api);
+app.use("/api", api);
 
 app.use(errorHandler);
