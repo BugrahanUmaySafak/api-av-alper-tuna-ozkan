@@ -42,9 +42,9 @@ import {
   createIletisim,
   listIletisim,
   deleteIletisim,
+  getIletisimById,
 } from "./modules/contact/contact.controller.js";
 
-import { requireAuth } from "./middlewares/requireAuth.js";
 import { uploadsRouter } from "./modules/uploads/uploads.routes.js";
 
 /* ========================================================================== */
@@ -116,39 +116,34 @@ app.use("/api/auth", authRouter);
 // Tüm uçlar /api altında; public ve auth’lu uçları aynı router’da ayırıyoruz
 const api = express.Router();
 
-/* ======== PUBLIC (ANA SİTE) ======== */
-// Makaleler (sadece GET)
+// Makaleler
 api.get("/makalelerim", listArticles);
 api.get("/makalelerim/:slug", getArticleBySlug);
+api.post("/makalelerim", createArticle);
+api.patch("/makalelerim/:id", updateArticle);
+api.delete("/makalelerim/:id", deleteArticle);
 
-// Videolar (sadece GET)
+// Videolar
 api.get("/videolarim", listVideos);
 api.get("/videolarim/:id", getVideoById);
+api.post("/videolarim", createVideo);
+api.patch("/videolarim/:id", updateVideo);
+api.delete("/videolarim/:id", deleteVideo);
 
-// Kategoriler (sadece GET)
+// Kategoriler
 api.get("/kategoriler", listCategories);
+api.post("/kategoriler", createCategory);
+api.patch("/kategoriler/:id", updateCategory);
+api.delete("/kategoriler/:id", deleteCategory);
 
-// İletişim (sadece POST public)
+// İletişim
 api.post("/iletisim", createIletisim);
+api.get("/iletisim", listIletisim);
+api.get("/iletisim/:id", getIletisimById);
+api.delete("/iletisim/:id", deleteIletisim);
 
-/* ======== PANEL (AUTH ZORUNLU) ======== */
-// Makaleler CRUD
-api.post("/makalelerim", requireAuth, createArticle);
-api.patch("/makalelerim/:id", requireAuth, updateArticle);
-api.delete("/makalelerim/:id", requireAuth, deleteArticle);
-
-api.post("/videolarim", requireAuth, createVideo);
-api.patch("/videolarim/:id", requireAuth, updateVideo);
-api.delete("/videolarim/:id", requireAuth, deleteVideo);
-
+// Upload helpers
 api.use("/uploads", uploadsRouter);
-
-api.post("/kategoriler", requireAuth, createCategory);
-api.patch("/kategoriler/:id", requireAuth, updateCategory);
-api.delete("/kategoriler/:id", requireAuth, deleteCategory);
-
-api.get("/iletisim", requireAuth, listIletisim);
-api.delete("/iletisim/:id", requireAuth, deleteIletisim);
 
 app.use("/api", api);
 

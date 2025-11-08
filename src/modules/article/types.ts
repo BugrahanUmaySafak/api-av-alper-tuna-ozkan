@@ -1,5 +1,5 @@
 // src/modules/article/types.ts
-import type { Category } from "../category/types.ts";
+export type CategoryRef = { id: string; name: string };
 
 export type Article = {
   id: string;
@@ -13,9 +13,13 @@ export type Article = {
     publicId?: string;
   };
   summary?: string;
-  category?: Category;
+  category?: CategoryRef;
   keywords: string[];
-  publishedAt: string; // createdAt ISO
-  updatedAt?: string; // updatedAt ISO
   readingMinutes?: number;
+  publishedAt?: string;
+  updatedAt?: string;
+};
+
+export type ArticleList = {
+  items: Article[];
 };

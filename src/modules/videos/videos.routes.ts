@@ -7,7 +7,6 @@ import {
   deleteVideo,
   getVideoById,
 } from "./videos.controller.js";
-import { requireAuth } from "../../middlewares/requireAuth.js";
 
 export const videosRouter = Router();
 
@@ -15,7 +14,6 @@ export const videosRouter = Router();
 videosRouter.get("/", listVideos);
 videosRouter.get("/:id", getVideoById);
 
-/* Panel (AUTH ZORUNLU) */
-videosRouter.post("/", requireAuth, createVideo);
-videosRouter.patch("/:id", requireAuth, updateVideo);
-videosRouter.delete("/:id", requireAuth, deleteVideo);
+videosRouter.post("/", createVideo);
+videosRouter.patch("/:id", updateVideo);
+videosRouter.delete("/:id", deleteVideo);

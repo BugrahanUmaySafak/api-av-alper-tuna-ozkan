@@ -13,7 +13,6 @@ import { CategoryModel } from "../category/category.model.js";
    Yardımcı: DB dokümanını API formatına çevir
 -------------------------------------------------- */
 function mapVideo(doc: any) {
-  // kategori normalize
   let category:
     | {
         id: string;
@@ -23,23 +22,17 @@ function mapVideo(doc: any) {
 
   const cat = doc?.category;
   if (cat && typeof cat === "object") {
-    // populate edilmiş
     if (cat._id && cat.name) {
       category = { id: String(cat._id), name: String(cat.name) };
     } else if (Types.ObjectId.isValid(cat)) {
-      // sadece ObjectId olarak duruyor
       category = { id: String(cat), name: "" };
     }
   }
 
   return {
     id: String(doc._id),
-    title: String(doc.title),
-    youtubeId: String(doc.youtubeId),
-    createdAt: doc.createdAt,
-    updatedAt: doc.updatedAt,
-    coverUrl: doc.coverUrl ? String(doc.coverUrl) : undefined,
-    coverPublicId: doc.coverPublicId ? String(doc.coverPublicId) : undefined,
+    title: String(doc.title ?? ""),
+    youtubeId: String(doc.youtubeId ?? ""),
     category,
   };
 }

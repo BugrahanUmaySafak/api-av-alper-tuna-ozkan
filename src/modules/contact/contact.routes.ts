@@ -4,14 +4,12 @@ import {
   createIletisim,
   listIletisim,
   deleteIletisim,
+  getIletisimById,
 } from "./contact.controller.js";
-import { requireAuth } from "../../middlewares/requireAuth.js";
 
 export const contactRouter = Router();
 
-/* Ana site: sadece POST /iletisim public */
 contactRouter.post("/", createIletisim);
-
-/* Panel (AUTH ZORUNLU) */
-contactRouter.get("/", requireAuth, listIletisim);
-contactRouter.delete("/:id", requireAuth, deleteIletisim);
+contactRouter.get("/", listIletisim);
+contactRouter.get("/:id", getIletisimById);
+contactRouter.delete("/:id", deleteIletisim);
